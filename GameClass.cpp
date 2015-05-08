@@ -3,6 +3,7 @@
 #include "GameClass.h"
 #include "defines.h"
 
+
 // 60 FPS (1.0f/60.0f)
 //#define FIXED_TIMESTEP 0.0166666f
 //#define MAX_TIMESTEPS 6
@@ -17,7 +18,7 @@ GameClass::GameClass() {
 }
 void GameClass::Init() {
 	//video stuff
-	SDL_Init(SDL_INIT_VIDEO);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
 	displayWindow = SDL_CreateWindow("My Game", SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_OPENGL);
 	SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
@@ -39,14 +40,24 @@ void GameClass::Init() {
 	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
 	//music = Mix_LoadMUS("murder.mp3");
 
-	player = new Entity(0.5f, -0.7f, 0.06f, 0.06f);
+
+	playerOneController = SDL_JoystickOpen(0);
+	if (playerOneController) printf("\n\n\n\n\n\n\n\n\##################################\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+	//player = new Entity(.33f, -1.0f, 0.06f, 0.06f);
+	//box = new Entity(0.7f, -0.9f, 0.06f, 0.06f);
+
 	player->sheet = spriteImg;
 	player->jumpSound = Mix_LoadWAV("smw_jump.wav");
 	player->hitSound = Mix_LoadWAV("smw_shell_ricochet.wav");
 	Mix_VolumeChunk((player->hitSound), 127);
 	Mix_VolumeChunk((player->jumpSound), 90);
 
+	exit->sheet = spriteImg;
 	
+	for (size_t i = 0; i < enemies.size(); i++){
+		enemies[i]->sheet = spriteImg;
+
+	}
 
 	
 	//someSound = Mix_LoadWAV("hangout.wav");
@@ -72,21 +83,24 @@ void GameClass::renderLevel(){
 
 	for (int y = 0; y < mapHeight; y++) {
 		for (int x = 0; x < mapWidth; x++) {
-			float u = (float)(((int)levelData[y][x]) % SPRITE_COUNT_X) / (float)SPRITE_COUNT_X;
-			float v = (float)(((int)levelData[y][x]) / SPRITE_COUNT_X) / (float)SPRITE_COUNT_Y;
-			float spriteWidth = 1.0f / (float)SPRITE_COUNT_X;
-			float spriteHeight = 1.0f / (float)SPRITE_COUNT_Y;
-			vertexData.insert(vertexData.end(), {
-				TILE_SIZE * x, -TILE_SIZE * y,
-				TILE_SIZE * x, (-TILE_SIZE * y) - TILE_SIZE,
-				(TILE_SIZE * x) + TILE_SIZE, (-TILE_SIZE * y) - TILE_SIZE,
-				(TILE_SIZE * x) + TILE_SIZE, -TILE_SIZE * y
-			});
-			texCoordData.insert(texCoordData.end(), { u, v,
-				u, v + (spriteHeight),
-				u + spriteWidth, v + (spriteHeight),
-				u + spriteWidth, v
-			});
+			//if goes here
+			if ((int)levelData[y][x] != 0) {
+				float u = (float)(((int)levelData[y][x]) % SPRITE_COUNT_X) / (float)SPRITE_COUNT_X;
+				float v = (float)(((int)levelData[y][x]) / SPRITE_COUNT_X) / (float)SPRITE_COUNT_Y;
+				float spriteWidth = 1.0f / (float)SPRITE_COUNT_X;
+				float spriteHeight = 1.0f / (float)SPRITE_COUNT_Y;
+				vertexData.insert(vertexData.end(), {
+					TILE_SIZE * x, -TILE_SIZE * y,
+					TILE_SIZE * x, (-TILE_SIZE * y) - TILE_SIZE,
+					(TILE_SIZE * x) + TILE_SIZE, (-TILE_SIZE * y) - TILE_SIZE,
+					(TILE_SIZE * x) + TILE_SIZE, -TILE_SIZE * y
+				});
+				texCoordData.insert(texCoordData.end(), { u, v,
+					u, v + (spriteHeight),
+					u + spriteWidth, v + (spriteHeight),
+					u + spriteWidth, v
+				});
+			}
 		}
 	}
 
@@ -109,6 +123,7 @@ void GameClass::renderLevel(){
 GameClass::~GameClass() {
 	//SDL_Quit();
 	//Mix_FreeChunk(someSound);
+	SDL_JoystickClose(playerOneController);
 	Mix_FreeMusic(music);
 	SDL_Quit();
 }
@@ -134,16 +149,33 @@ void GameClass::Render() {
 	float transAmt = player->xPos*-1.0f; //follow the player
 	//stay within bounds of level
 	if (transAmt > -1.33f) transAmt = -1.33f;
-	else if (transAmt < -mapWidth*TILE_SIZE + 1.33) transAmt = -mapWidth*TILE_SIZE + 1.33;
+	else if (transAmt < -mapWidth*TILE_SIZE + 1.33f) transAmt = -mapWidth*TILE_SIZE + 1.33f;
 	//wiggle room
 	
+	float transAmtY = player->yPos*-1.0f; //follow the player
+	if (transAmtY < 1.0f) transAmtY = 1.0f;
+	else if (transAmtY > mapHeight*TILE_SIZE - 1.0f) transAmtY = mapHeight*TILE_SIZE - 1.0f;
+
 
 	//glTranslatef(player->xPos*-1.0, player->yPos*-1.0, 0.0);
-	glTranslatef(transAmt, 1.0, 0.0);
+	glTranslatef(transAmt, transAmtY, 0.0);
 
 	renderLevel();
 
+	glPushMatrix();
+	glPushMatrix();
+	//DrawSpriteSheetSprite(spriteImg, 50, 16, 8, player->xPos + .1f, player->yPos, player->xRad, player->yRad, 0.0f);
+
+	exit->Render();
+	glPopMatrix();
 	player->Render();
+	glPopMatrix();
+
+	for (size_t i = 0; i < enemies.size(); i++){
+		//printf("render enemy at %f, %f", enemies[0]->xPos, enemies[0]->yPos);
+		enemies[i]->Render();
+		
+	}
 
 
 	SDL_GL_SwapWindow(displayWindow);
@@ -154,6 +186,7 @@ void GameClass::Update(float elapsed) {
 		if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
 			done = true;
 		}
+		//input
 		else if (event.type == SDL_KEYDOWN) {
 			if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
 				// DO AN ACTION WHEN SPACE IS PRESSED!
@@ -176,23 +209,35 @@ void GameClass::Update(float elapsed) {
 			if (event.key.keysym.scancode == SDL_SCANCODE_W) {
 				//do for all dynamic entities
 				player->setGrav(GRAV_UP);
+				//box->setGrav(GRAV_UP);
 			}
 			if (event.key.keysym.scancode == SDL_SCANCODE_A) {
 				//do for all dynamic entities
 				player->setGrav(GRAV_LEFT);
+				//box->setGrav(GRAV_LEFT);
 			}
 			if (event.key.keysym.scancode == SDL_SCANCODE_S) {
 				//do for all dynamic entities
 				player->setGrav(GRAV_DOWN);
+				//box->setGrav(GRAV_DOWN);
 			}
 			if (event.key.keysym.scancode == SDL_SCANCODE_D) {
 				//do for all dynamic entities
 				player->setGrav(GRAV_RIGHT);
+				//box->setGrav(GRAV_RIGHT);
 			}
 
 
 
 		}
+		else if (event.type == SDL_JOYBUTTONDOWN && event.jbutton.button == 10) {
+			printf("\njumps!!!!!");
+			player->jump();
+
+			// event.jbutton.which tells us which controller (e.g. 0,1,etc.)
+			// event.jbutton.button tells us which button was pressed (0,1,2…etc)
+		}
+
 	}
 }
 bool GameClass::UpdateAndRender() {
@@ -229,6 +274,10 @@ void GameClass::FixedUpdate(){
 
 	player->playerInput();
 	player->FixedUpdate(levelData, mapHeight, mapWidth);
+	//box->FixedUpdate(levelData, mapHeight, mapWidth);
+
+	if (player->collidesWith(exit)) printf("winner!");
+
 }
 
 
@@ -237,16 +286,18 @@ void GameClass::FixedUpdate(){
 //file stuff
 
 void GameClass::ReadTileMapFile() {
-	std::ifstream infile("test1.txt");
+	std::ifstream infile(LEVEL_FILE);
 	std::string line;
 	while (std::getline(infile, line)) {
 		if (line == "[header]" && !ReadTileMapHeaderData(infile)) {
 			return;
 		}
 		else if (line == "[layer]") {
+			printf("\ndebug at layer tile layer");
 			ReadTileMapLayerData(infile);
 		}
-		else if (line == "[ObjectLayer]") {
+		else if (line == "[Object Layer 1]") {
+			printf("\ndebug at obj layer");
 			ReadTileMapEntityData(infile);
 		}
 	}
@@ -328,9 +379,34 @@ bool GameClass::ReadTileMapEntityData(std::ifstream &stream) {
 			std::string xPosition, yPosition;
 			std::getline(lineStream, xPosition, ',');
 			std::getline(lineStream, yPosition, ',');
-			float placeX = atoi(xPosition.c_str()) / 16 * TILE_SIZE + TILE_SIZE;
-			float placeY = atoi(yPosition.c_str()) / 16 * -TILE_SIZE;
-			//BuildEntity(type, placeX, placeY);
+			float placeX = atoi(xPosition.c_str()) / 1 * TILE_SIZE + TILE_SIZE;
+			float placeY = atoi(yPosition.c_str()) / 1 * -TILE_SIZE;
+			if (type == "player"){
+				printf("in here\n");
+
+				//player = new Entity(.33f, -1.0f, 0.06f, 0.06f);
+
+				player = new Entity(placeX, placeY, "player");
+				printf("\n ");
+				cout << xPosition << " " << yPosition <<endl;
+				printf("%f, %f", placeX, placeY);
+				}
+			else if (type == "enemy")
+			{
+				enemies.push_back(new Entity(placeX, placeY, "enemy"));
+				printf("ENEMY\n");
+
+
+
+			}
+			else if (type == "goal")
+			{
+				exit = new Entity(placeX, placeY, "goal");
+				printf("EXIT\n");
+				printf("\n ");
+				cout << xPosition << " " << yPosition << endl;
+				printf("%f, %f", placeX, placeY);
+			}
 		}
 	}
 	return true;

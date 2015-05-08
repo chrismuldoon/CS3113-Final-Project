@@ -56,9 +56,12 @@ private:
 	int mapHeight;
 
 	Entity* player;
+	Entity* box;
+	Entity* exit;
 	//Entity* box;
-	vector<Entity*> staticObjects;
+	vector<Entity*> enemies;
 
 	Mix_Music *music;
-	
+
+	SDL_Joystick * playerOneController;
 };

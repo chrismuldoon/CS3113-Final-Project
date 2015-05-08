@@ -18,7 +18,8 @@ using namespace std;
 
 class Entity {
 public:
-	Entity(float x, float y, float xr, float yr, float colorR = 1.0f, float colorG = 0.0f, float colorB = 0.0f, bool statc = false, bool destrct = false, bool coin = false);
+	Entity(float x, float y, float xr, float yr, float colorR = 1.0f, float colorG = 0.0f, float colorB = 0.0f, bool statc = false, bool destrct = false, bool box = false);
+	Entity(float x, float y, string type);
 	void Update(float elapsed);
 	void Render();
 	bool collidesWith(Entity *entity);
@@ -60,8 +61,10 @@ public:
 
 	const bool isStatic;
 	const bool destructable;
-	const bool isCoin;
+	bool isBox;
 	bool isVisable;
+	bool isExit;
+	bool isEnemy;
 	
 	//bool enableCollisions;
 
@@ -69,6 +72,7 @@ public:
 	bool collidedBottom;
 	bool collidedLeft;
 	bool collidedRight;
+	bool canChangeGrav;
 
 	int score;
 

@@ -8,7 +8,7 @@
 //#define LEVEL_WIDTH 8
 //#define TILE_SIZE 0.333f
 #define TILE_SIZE 0.125f
-
+#define LEVEL_FILE "test0.txt"
 
 #define WORLD_OFFSET_X 0.0f
 #define WORLD_OFFSET_Y 0.0f

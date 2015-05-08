@@ -3,14 +3,19 @@
 #include "common.h"
 
 
-#define YGRAVITY 3.8f //2.5
-#define X_FRIC 1.0f
+#define YGRAVITY 3.3f //2.5
+#define X_FRIC 3.8f
 
-#define JUMP_SPEED 1.8f //1.4
-#define MAX_SPEED 1.0f
+#define JUMP_SPEED 1.63f //1.4
+#define MAX_SPEED 1.1f
 
-#define INPUT_ACCEL 3.0f
+#define INPUT_ACCEL 8.0f
 #define JUMP_ACCEL 1.0f
+
+#define AIR_ACCEL 0.22f
+#define AIR_FRIC 0.22f
+
+#define PLAYER_RADIUS 0.06f
 
 
 
@@ -18,27 +23,28 @@
 bool isSolid(int index){
 	//all but 12 are solid
 	
-	if ((int)index == 12){ 
-		//printf("TWELVE"); 
+	if ((int)index == 12 || (int)index == 96 || (int)index == 97 || (int)index == 112 || (int)index == 113 || (int)index == 114 || (int)index == 115) {
+		////printf("TWELVE"); 
 		return false; }
 	//printf("%i", index);
 	return true;
 }
 
 bool isDeadly(int index){
-	if (index == 100 || index == 101 || index == 102 || index == 102 || index == 116 || index == 117 || index == 118 || index == 119 ){
+	if (index == 100 || index == 101 || index == 102 || index == 103 || index == 116 || index == 117 || index == 118 || index == 119 ){
 		return true;
 	}
 	return false;
 }
 
-Entity::Entity(float x, float y, float xr, float yr, float colorR, float colorG, float colorB, bool statc, bool destruct, bool coin)
-	:initXpos(x), initYpos(y), xRad(xr), yRad(yr), rIn(colorR), gIn(colorG), bIn(colorB), isStatic(statc), destructable(destruct), isCoin(coin)
+Entity::Entity(float x, float y, float xr, float yr, float colorR, float colorG, float colorB, bool statc, bool destruct, bool box)
+	:initXpos(x), initYpos(y), xRad(xr), yRad(yr), rIn(colorR), gIn(colorG), bIn(colorB), isStatic(statc), destructable(destruct), isBox(box)
 {
 	collidedBottom = false;
 	collidedLeft = false;
 	collidedRight = false;
 	collidedTop = false;
+	canChangeGrav = true;
 
 	isVisable = true;
 	score = 0;
@@ -62,6 +68,58 @@ Entity::Entity(float x, float y, float xr, float yr, float colorR, float colorG,
 	}
 }
 
+
+Entity::Entity(float x, float y, string type)
+	:initXpos(x), initYpos(y), xRad(PLAYER_RADIUS), yRad(PLAYER_RADIUS), rIn(1.0f), gIn(1.0f), bIn(1.0f), isStatic(false), destructable(false)//, isBox(box)
+{
+	if (type == "player"){
+		isBox = false;
+		isExit = false;
+	
+		collidedBottom = false;
+		collidedLeft = false;
+		collidedRight = false;
+		collidedTop = false;
+		canChangeGrav = true;
+
+		isVisable = true;
+		score = 0;
+		r = rIn;
+		g = gIn;
+		b = bIn;
+
+		ResetDynamic();
+	}
+	else if (type == "goal"){
+		isBox = false;
+		isVisable = true;
+		isExit = true;
+		xPos = initXpos + xRad; 
+		yPos = initYpos + yRad;
+
+	}
+	else if (type == "enemy")
+	{
+		isBox = false;		
+		isExit = false;
+		isEnemy = true;
+
+		collidedBottom = false;
+		collidedLeft = false;
+		collidedRight = false;
+		collidedTop = false;
+		canChangeGrav = false;
+		
+		
+		isVisable = true;
+
+		ResetDynamic();
+		yVel = 0.5f;
+	}
+
+}
+
+
 void Entity::ResetDynamic(){
 	static float dir = 1.0f;
 	xPos = initXpos;
@@ -77,14 +135,7 @@ void Entity::ResetDynamic(){
 	xFric = X_FRIC;
 	yFric = X_FRIC;
 
-
-
-	if (isCoin){
-		xVel = 1.5f*dir;
-		dir *= -1.0;
-	}	
-	else
-		xVel = 0.0f;
+	xVel = 0.0f;
 		
 	
 }
@@ -123,7 +174,20 @@ void Entity::destroy(bool start){
 }
 
 void Entity::Render(){
-	if (isVisable){
+	
+	if (isExit){
+		//printf("exit render");
+		DrawSpriteSheetSprite(sheet, 50, 16, 8, xPos, yPos, xRad, yRad, 0.0f);
+
+	
+	}
+
+	else if (isEnemy){
+		printf("isenemyrender");
+		DrawSpriteSheetSprite(sheet, 4, 16, 8, xPos, yPos, xRad, yRad, 0.0f);
+	}
+
+	else if (isVisable){
 		//DrawRectangle(xPos, yPos, xRad, yRad);// , r, g, b);
 		float rotateThis;
 		if (gravFlag == GRAV_DOWN)	rotateThis = 0.0f;
@@ -183,8 +247,8 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 	//dynamic stuff 
 	//acceleration, gravity, friction etc.
 
-	if ( !collidedBottom && !collidedTop) xAccel *= 0.2f;
-	if (!collidedLeft && !collidedRight) yAccel *= 0.2f;
+	if ( !collidedBottom && !collidedTop) xAccel *= AIR_ACCEL;
+	if (!collidedLeft && !collidedRight) yAccel *= AIR_ACCEL;
 
 
 	//horizontal accel (player input movement)
@@ -227,33 +291,36 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 
 	//friction alot less if in air
 	float adjusedFric = xFric;
-	if (!collidedBottom && !collidedTop) adjusedFric *= 0.2f;
+	if (!collidedBottom && !collidedTop) adjusedFric *= AIR_FRIC;
 
 	//friction alot less if in air
 	float adjusedYFric = yFric;
-	if (!collidedLeft && !collidedRight) adjusedYFric *= 0.2f;
+	if (!collidedLeft && !collidedRight) adjusedYFric *= AIR_FRIC;
 
 	//xVel = lerp(xVel, 0.0f, FIXED_TIMESTEP * xFric);
 
-	//friction
-	if (xVel > 0){ //moving right
-		xVel -= adjusedFric * FIXED_TIMESTEP;
-		if (xVel < 0) xVel = 0;
-	}
-	else if (xVel < 0){ //moving left
-		xVel += adjusedFric * FIXED_TIMESTEP;
-		if (xVel > 0) xVel = 0;
-	}
 
-
-	//friction
-	if (yVel > 0){ //moving right
-		yVel -= adjusedYFric * FIXED_TIMESTEP;
-		if (yVel < 0) yVel = 0;
+	if (gravFlag == GRAV_DOWN || gravFlag == GRAV_UP){
+		//friction for x
+		if (xVel > 0){ //moving right
+			xVel -= adjusedFric * FIXED_TIMESTEP;
+			if (xVel < 0) xVel = 0;
+		}
+		else if (xVel < 0){ //moving left
+			xVel += adjusedFric * FIXED_TIMESTEP;
+			if (xVel > 0) xVel = 0;
+		}
 	}
-	else if (yVel < 0){ //moving left
-		yVel += adjusedYFric * FIXED_TIMESTEP;
-		if (yVel > 0) yVel = 0;
+	else{
+		//friction for y
+		if (yVel > 0){ //moving right
+			yVel -= adjusedYFric * FIXED_TIMESTEP;
+			if (yVel < 0) yVel = 0;
+		}
+		else if (yVel < 0){ //moving left
+			yVel += adjusedYFric * FIXED_TIMESTEP;
+			if (yVel > 0) yVel = 0;
+		}
 	}
 
 
@@ -265,7 +332,7 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 	collidedRight = false;
 	collidedTop = false;
 
-	printf("\nfr: ");
+	//printf("\nfr: ");
 
 	//move in x direction
 	//check for collision with an object
@@ -290,12 +357,13 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 		//if (level[gridY][gridX] != 12) {
 		if (isSolid(level[gridY][gridX])) {
 			//float pen = fabs(gridY*TILE_SIZE - (yPos - yRad)); //gridY*TILE_SIZE  is top of tile
-			yPos = -gridY*TILE_SIZE + yRad + 0.0000001f;
-			printf(" bottom");
+			yPos = -gridY*TILE_SIZE + yRad + 0.0001f;
+			//printf(" bottom");
 			yVel = 0.0f;
 			collidedBottom = true;
+			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX])) ResetDynamic();
+		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
 	//bottom! (right corner)
@@ -303,37 +371,40 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
 			//float pen = fabs(gridY*TILE_SIZE - (yPos - yRad)); //gridY*TILE_SIZE  is top of tile
-			yPos = -gridY*TILE_SIZE + yRad + 0.0000001f;
-			printf(" bottom");
+			yPos = -gridY*TILE_SIZE + yRad + 0.0001f;
+			//printf(" bottom");
 			yVel = 0.0f;
 			collidedBottom = true;
+			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX])) ResetDynamic();
+		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
 	//top! (left corner)
 	worldToTileCoordinates(xPos - xRad*0.7f, yPos + yRad, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
-			yPos = -(gridY + 1)*TILE_SIZE - yRad - 0.0000001f;
-			printf(" top ");
+			yPos = -(gridY + 1)*TILE_SIZE - yRad - 0.0001f;
+			//printf(" top ");
 			yVel = 0.0f;
 			collidedTop = true;
+			canChangeGrav = true;
 			Mix_PlayChannel(2, hitSound, 0);
 		}
-		if (isDeadly(level[gridY][gridX])) ResetDynamic();
+		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 	//top! (right corner)
 	worldToTileCoordinates(xPos + xRad*0.7f, yPos + yRad, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
-			yPos = -(gridY + 1)*TILE_SIZE - yRad - 0.0000001f;
-			printf(" top ");
+			yPos = -(gridY + 1)*TILE_SIZE - yRad - 0.0001f;
+			//printf(" top ");
 			yVel = 0.0f;
 			collidedTop = true;
+			canChangeGrav = true;
 			Mix_PlayChannel(2, hitSound, 0);
 		}
-		if (isDeadly(level[gridY][gridX])) ResetDynamic();
+		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
 
@@ -344,62 +415,67 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 	worldToTileCoordinates(xPos - xRad, yPos -yRad*0.7f, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
-			xPos = (gridX + 1)*TILE_SIZE + xRad + 0.0000001f;
-			printf(" left");
+			xPos = (gridX + 1)*TILE_SIZE + xRad + 0.0001f;
+			//printf(" left");
 			xVel = 0.0f;
 			collidedLeft = true;
+			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX])) ResetDynamic();
+		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 	worldToTileCoordinates(xPos - xRad, yPos + yRad*0.7f, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
-			xPos = (gridX + 1)*TILE_SIZE + xRad + 0.0000001f;
-			printf(" left");
+			xPos = (gridX + 1)*TILE_SIZE + xRad + 0.0001f;
+			//printf(" left");
 			xVel = 0.0f;
 			collidedLeft = true;
+			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX])) ResetDynamic();
+		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
 	//right!
 	worldToTileCoordinates(xPos + xRad, yPos - yRad*0.7f, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
-			xPos = gridX*TILE_SIZE - xRad - 0.0000001f;
-			printf(" right ");
+			xPos = gridX*TILE_SIZE - xRad - 0.0001f;
+			//printf(" right ");
 			xVel = 0.0f;
 			collidedRight = true;
+			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX])) ResetDynamic();
+		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 	worldToTileCoordinates(xPos + xRad, yPos + yRad*0.7f, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
-			xPos = gridX*TILE_SIZE - xRad - 0.0000001f;
-			printf(" right ");
+			xPos = gridX*TILE_SIZE - xRad - 0.0001f;
+			//printf(" right ");
 			xVel = 0.0f;
 			collidedRight = true;
+			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX])) ResetDynamic();
+		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
+	//do collisions for boxes, the old way
 
-
-	//if ur a coin, check collision with player
-	if (isCoin &&isVisable && player)
-		if (collidesWith(player)){
-			player->score++;
-			ResetDynamic();
-		}
+	//if ur a enemy, check collision in front of u to turn around
+	
 
 	//if fall below screen
-	if (yPos < -(mapHeight+3)*TILE_SIZE){
+	if ((yPos < -(mapHeight + 3)*TILE_SIZE) || (yPos > TILE_SIZE * 3) || (xPos < -TILE_SIZE * 3) || (xPos > (mapWidth  +3) * TILE_SIZE) ){
 		ResetDynamic();
 		score = 0;
 	}
 
 	//end collision stuf
+
+
+
+
+
 
 	//move later
 	
@@ -416,33 +492,34 @@ void Entity::playerInput(){
 		yAccel = JUMP_ACCEL;
 	else yAccel = 0.0f;
 
-	//x-movement
-	if (keys[SDL_SCANCODE_LEFT]) {
-		// go left!
-		xAccel = -INPUT_ACCEL;
-	}
-	else if (keys[SDL_SCANCODE_RIGHT]) {
-		// go right!
-		xAccel = INPUT_ACCEL;
-	}
-	else {
-		xAccel = 0;
-	}
-
-	//temporary
-	//x-movement
-	if (keys[SDL_SCANCODE_UP]) {
-		// go left!
-		yAccel = INPUT_ACCEL;
-	}
-	else if (keys[SDL_SCANCODE_DOWN]) {
-		// go right!
-		yAccel = -INPUT_ACCEL;
-	}
-	else {
+	if (gravFlag == GRAV_DOWN || gravFlag == GRAV_UP ){//x-movement
 		yAccel = 0;
+		if (keys[SDL_SCANCODE_LEFT]) {
+			// go left!
+			xAccel = -INPUT_ACCEL;
+		}
+		else if (keys[SDL_SCANCODE_RIGHT]) {
+			// go right!
+			xAccel = INPUT_ACCEL;
+		}
+		else {
+			xAccel = 0;
+		}
 	}
-
+	else{
+		xAccel = 0;
+		if (keys[SDL_SCANCODE_UP]) {
+			// go left!
+			yAccel = INPUT_ACCEL;
+		}
+		else if (keys[SDL_SCANCODE_DOWN]) {
+			// go right!
+			yAccel = -INPUT_ACCEL;
+		}
+		else {
+			yAccel = 0;
+		}
+	}
 
 
 
@@ -499,6 +576,9 @@ void Entity::rotateGravR(){
 
 
 void Entity::setGrav(int direction){
+	if (!canChangeGrav) return;
+	canChangeGrav = false;
+
 	if (direction == GRAV_DOWN){
 		gravFlag = GRAV_DOWN;
 		xGrav = 0;
