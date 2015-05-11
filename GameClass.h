@@ -35,6 +35,10 @@ public:
 	void Update(float elapsed);
 	void FixedUpdate();
 
+	void RenderGO();
+	void RenderMenu();
+	void UpdateGO();
+	void UpdateMenu();
 
 	void ReadTileMapFile();
 	bool ReadTileMapHeaderData(std::ifstream &stream);
@@ -43,6 +47,9 @@ public:
 
 
 private:
+	int state;
+	int levelNum;
+
 	bool done;
 	float lastFrameTicks;
 	float timeLeftOver;
@@ -64,4 +71,7 @@ private:
 	Mix_Music *music;
 
 	SDL_Joystick * playerOneController;
+
+	void enemyCollision(Entity* player, Entity* enemy);
+	void InitLevel();
 };

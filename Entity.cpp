@@ -8,11 +8,14 @@
 
 #define JUMP_SPEED 1.63f //1.4
 #define MAX_SPEED 1.1f
+#define ENEMY_SPEED_FRAC 0.35f
+#define MAXFALL 1.8f
+
 
 #define INPUT_ACCEL 8.0f
 #define JUMP_ACCEL 1.0f
 
-#define AIR_ACCEL 0.22f
+#define AIR_ACCEL 0.27f
 #define AIR_FRIC 0.22f
 
 #define PLAYER_RADIUS 0.06f
@@ -114,7 +117,7 @@ Entity::Entity(float x, float y, string type)
 		isVisable = true;
 
 		ResetDynamic();
-		yVel = 0.5f;
+		enemyAccel = INPUT_ACCEL *0.7;
 	}
 
 }
@@ -122,8 +125,8 @@ Entity::Entity(float x, float y, string type)
 
 void Entity::ResetDynamic(){
 	static float dir = 1.0f;
-	xPos = initXpos;
-	yPos = initYpos;
+	xPos = initXpos - xRad;
+	yPos = initYpos + yRad;
 	xAccel = 0.0f;
 	yAccel = 0.0f;
 	yVel = 0.0f;
@@ -136,7 +139,8 @@ void Entity::ResetDynamic(){
 	yFric = X_FRIC;
 
 	xVel = 0.0f;
-		
+
+	if (isEnemy) xAccel = INPUT_ACCEL*0.99f;
 	
 }
 
@@ -182,8 +186,8 @@ void Entity::Render(){
 	
 	}
 
-	else if (isEnemy){
-		printf("isenemyrender");
+	else if (isEnemy && isVisable){
+		//printf("isenemyrender");
 		DrawSpriteSheetSprite(sheet, 4, 16, 8, xPos, yPos, xRad, yRad, 0.0f);
 	}
 
@@ -258,6 +262,12 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			if (xVel > MAX_SPEED) xVel = MAX_SPEED;
 			if (xVel < -MAX_SPEED) xVel = -MAX_SPEED;
 	}
+
+	if (isEnemy){
+		if (xVel >= 0) xVel = MAX_SPEED*ENEMY_SPEED_FRAC;
+		else if (true)
+		 xVel = -MAX_SPEED*ENEMY_SPEED_FRAC;
+	}
 	//or if a & v signs dont match, apply accel
 	else if ((xVel < 0 && xAccel > 0)||(xVel > 0 && xAccel < 0)) 
 		xVel += xAccel *  FIXED_TIMESTEP;
@@ -285,7 +295,16 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 
 
 	yVel += yGrav * FIXED_TIMESTEP;
+
+	if (yVel > MAXFALL) yVel = MAXFALL;
+	if (yVel < -MAXFALL) yVel = -MAXFALL;
+
+
 	xVel += xGrav * FIXED_TIMESTEP;
+
+
+	if (xVel > MAXFALL) xVel = MAXFALL;
+	if (xVel < -MAXFALL) xVel = -MAXFALL;
 
 
 
@@ -363,7 +382,7 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			collidedBottom = true;
 			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
 	//bottom! (right corner)
@@ -377,7 +396,7 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			collidedBottom = true;
 			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
 	//top! (left corner)
@@ -391,7 +410,7 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			canChangeGrav = true;
 			Mix_PlayChannel(2, hitSound, 0);
 		}
-		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 	//top! (right corner)
 	worldToTileCoordinates(xPos + xRad*0.7f, yPos + yRad, &gridX, &gridY);
@@ -404,7 +423,7 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			canChangeGrav = true;
 			Mix_PlayChannel(2, hitSound, 0);
 		}
-		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
 
@@ -417,22 +436,24 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 		if (isSolid(level[gridY][gridX])) {
 			xPos = (gridX + 1)*TILE_SIZE + xRad + 0.0001f;
 			//printf(" left");
-			xVel = 0.0f;
+			if (isEnemy){ xVel *= -1.0f; enemyAccel *= -1.0f; }
+			else xVel = 0.0f;
 			collidedLeft = true;
 			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 	worldToTileCoordinates(xPos - xRad, yPos + yRad*0.7f, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
 			xPos = (gridX + 1)*TILE_SIZE + xRad + 0.0001f;
 			//printf(" left");
-			xVel = 0.0f;
+			if (isEnemy){ xVel *= -1.0f; enemyAccel *= -1.0f; }
+			else xVel = 0.0f;
 			collidedLeft = true;
 			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 
 	//right!
@@ -441,23 +462,53 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 		if (isSolid(level[gridY][gridX])) {
 			xPos = gridX*TILE_SIZE - xRad - 0.0001f;
 			//printf(" right ");
-			xVel = 0.0f;
+			if (isEnemy){ xVel *= -1.0f; enemyAccel *= -1.0f; }
+			else xVel = 0.0f;
 			collidedRight = true;
 			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
 	worldToTileCoordinates(xPos + xRad, yPos + yRad*0.7f, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
 		if (isSolid(level[gridY][gridX])) {
 			xPos = gridX*TILE_SIZE - xRad - 0.0001f;
 			//printf(" right ");
-			xVel = 0.0f;
+			if (isEnemy){ xVel *= -1.0f; enemyAccel *= -1.0f; }
+			else xVel = 0.0f;
 			collidedRight = true;
 			canChangeGrav = true;
 		}
-		if (isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
 	}
+	//enemy"AI" (lol)
+	if (isEnemy){
+		worldToTileCoordinates(xPos + xRad*1.2f, yPos - yRad*1.4f, &gridX, &gridY);
+		if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
+			if (!isSolid(level[gridY][gridX])) {
+				//xPos = gridX*TILE_SIZE - xRad - 0.0001f;
+				//printf(" right ");
+				xVel *= -0.7f;
+				enemyAccel *= -1.0f;
+				
+			}
+		}
+
+		worldToTileCoordinates(xPos - xRad*1.2f, yPos - yRad*1.4f, &gridX, &gridY);
+		if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
+			if (!isSolid(level[gridY][gridX])) {
+				//xPos = gridX*TILE_SIZE - xRad - 0.0001f;
+				//printf(" right ");
+				xVel *= -0.7f;
+				enemyAccel *= -1.0f;
+
+			}
+		}
+	}
+
+
+
+
 
 	//do collisions for boxes, the old way
 
@@ -609,6 +660,8 @@ bool Entity::collidesWith(Entity *entity){
 	{	return true; }
 	return false;
 }
+
+
 
 float lerp(float v0, float v1, float t) {
 	return (1.0 - t)*v0 + t*v1;

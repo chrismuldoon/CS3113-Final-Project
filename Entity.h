@@ -51,6 +51,7 @@ public:
 	float yVel;
 	float xAccel;
 	float yAccel;
+	float enemyAccel;
 
 	int gravFlag;
 	float yGrav;

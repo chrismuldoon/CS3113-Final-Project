@@ -9,6 +9,9 @@
 //#define MAX_TIMESTEPS 6
 
 
+enum GameState { STATE_MENU, STATE_GAME, STATE_GAMEOVER };
+
+
 GameClass::GameClass() {
 	Init();
 	done = false;
@@ -34,7 +37,29 @@ void GameClass::Init() {
 	textImg = LoadTexture("font1.png");
 	spriteImg = LoadTexture("arne_sprites.png");
 
+	state = STATE_MENU;
 
+	//InitLevel();
+
+}
+
+void GameClass::InitLevel()
+{
+	//delete old stuff
+	if (player) delete player;
+	if (exit) delete exit;
+
+	for (size_t i = 0; i < enemies.size(); i++){
+		if (enemies[i]) delete enemies[i];
+	}
+	enemies.clear();
+
+
+	//make new stuff
+	//make variable called levelnum
+	//modify read map file to aaccount for it
+	//change the variable on level completion or wherever this function is called
+	
 	ReadTileMapFile();
 
 	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
@@ -127,6 +152,44 @@ GameClass::~GameClass() {
 	Mix_FreeMusic(music);
 	SDL_Quit();
 }
+void GameClass::RenderMenu(){
+	// render stuff
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	//size, spacing, x, y, rgba
+
+	DrawText(textImg, "INVADERS", 0.40, -0.16, -0.82, 0.5, 1.0, 1.0, 1.0, 1.0);
+	//DrawText(textImg, "I just met her!", 0.20, -0.11, -1.1, -0.3, 1.0, 1.0, 1.0, 1.0);
+	DrawText(textImg, "(Press Enter to start)", 0.16, -0.11, -0.5, -0.3, 1.0, 1.0, 1.0, 1.0);
+
+	//DrawRectanglee(0.0, 0.50, .50, .190);
+	SDL_GL_SwapWindow(displayWindow);
+
+
+
+}
+
+void GameClass::RenderGO(){
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	//DrawRectanglee(0.0, 0.0, 1.5, 2.0);
+
+	//if (!winner) DrawText(textImg, "YOU DIED", 0.40, -0.16, -0.82, 0.5, 1.0, 0.0, 0.0, 1.0);
+	//else        DrawText(textImg, "YOU WIN", 0.40, -0.16, -0.72, 0.5, 1.0, 1.0, 0.0, 1.0);
+
+
+	DrawText(textImg, "Score: ", 0.16, -0.09, -0.48, -0.001, 1.0, 1.0, 1.0, 1.0);
+	//DrawText(textImg, std::to_string(score * 10), 0.16, -0.09, 0.12, -0.001, 1.0, 1.0, 1.0, 1.0);
+	DrawText(textImg, "(Press esc to continue)", 0.16, -0.09, -0.72, -0.3, 0.2, 0.2, 0.2, 0.8);
+
+
+	SDL_GL_SwapWindow(displayWindow);
+
+}
+
+
 void GameClass::Render() {
 	//glClearColor(0.04f, 0.60f, 0.67f, 1.0f);
 	glClearColor(0.04f, 0.20f, 0.2f, 1.0f);
@@ -163,16 +226,20 @@ void GameClass::Render() {
 	renderLevel();
 
 	glPushMatrix();
-	glPushMatrix();
+	for (size_t i = 0; i < enemies.size(); i++){
+		glPushMatrix();
+	}
+
 	//DrawSpriteSheetSprite(spriteImg, 50, 16, 8, player->xPos + .1f, player->yPos, player->xRad, player->yRad, 0.0f);
 
 	exit->Render();
 	glPopMatrix();
 	player->Render();
-	glPopMatrix();
+	
 
 	for (size_t i = 0; i < enemies.size(); i++){
 		//printf("render enemy at %f, %f", enemies[0]->xPos, enemies[0]->yPos);
+		glPopMatrix();
 		enemies[i]->Render();
 		
 	}
@@ -205,6 +272,10 @@ void GameClass::Update(float elapsed) {
 			//}
 
 			//other keys...
+
+			if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+				state = STATE_MENU;
+			}
 
 			if (event.key.keysym.scancode == SDL_SCANCODE_W) {
 				//do for all dynamic entities
@@ -252,18 +323,98 @@ bool GameClass::UpdateAndRender() {
 	}
 	while (fixedElapsed >= FIXED_TIMESTEP) {
 		fixedElapsed -= FIXED_TIMESTEP;
-		FixedUpdate();
+		//case for fixed update
+		
+		switch (state)
+		{
+		case STATE_MENU:
+			//FixedUpdateGO();
+			break;
+		case STATE_GAME:
+			FixedUpdate();
+			break;
+		case STATE_GAMEOVER:
+			//FixedUpdateGO();
+
+			break;
+		}
+		
+		
+		
+		
+
+
 	}
 	timeLeftOver = fixedElapsed;
+	//case for update and render
+
+
+	switch (state)
+	{
+	case STATE_MENU:
+		UpdateMenu();
+		RenderMenu();
+		break;
+	case STATE_GAME:
 		Update(elapsed);
+		Render();
+		break;
+	case STATE_GAMEOVER:
+		UpdateGO();
+		RenderGO();
+		break;
+	}
 
 
 
 
-	Update(elapsed);
-	Render();
+
+
+	
+	
 	return done;
 }
+
+void GameClass::UpdateMenu(){
+
+	while (SDL_PollEvent(&event)) {
+		if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
+			done = true;
+		}
+		else if (event.type == SDL_KEYDOWN) {
+			if (event.key.keysym.scancode == SDL_SCANCODE_RETURN) {
+				// DO AN ACTION WHEN SPACE IS PRESSED!
+				//if (!player) break;
+				levelNum = 0;
+				InitLevel();
+				state = STATE_GAME;
+			}
+		}
+	}
+
+
+
+}
+
+void GameClass::UpdateGO(){
+
+	while (SDL_PollEvent(&event)) {
+		if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
+			done = true;
+		}
+		else if (event.type == SDL_KEYDOWN) {
+			if (event.key.keysym.scancode == SDL_SCANCODE_RETURN) {
+				// DO AN ACTION WHEN SPACE IS PRESSED!
+				//if (!player) break;
+				state = STATE_MENU;
+			}
+		}
+	}
+
+
+
+}
+
 
 void GameClass::FixedUpdate(){
 	//prints once per second
@@ -274,19 +425,68 @@ void GameClass::FixedUpdate(){
 
 	player->playerInput();
 	player->FixedUpdate(levelData, mapHeight, mapWidth);
-	//box->FixedUpdate(levelData, mapHeight, mapWidth);
+	
+	for (size_t i = 0; i < enemies.size(); i++){
+		if (enemies[i]->isVisable){
+			enemies[i]->FixedUpdate(levelData, mapHeight, mapWidth);
+			enemies[i]->xAccel = enemies[i]->enemyAccel;
+			enemyCollision(player, enemies[i]);
+			//check player collisions
+		}
 
-	if (player->collidesWith(exit)) printf("winner!");
+	}
+
+	if (player->collidesWith(exit)) { 
+		if (levelNum == 5) { state = STATE_GAMEOVER; return; }
+		levelNum++;
+
+		InitLevel();
+		
+		
+		
+		
+		printf("winner!"); }
 
 }
 
+void GameClass::enemyCollision(Entity* player, Entity* enemy){
+	if (player->collidesWith(enemy))
+	{ 
+		if (player->yPos > enemy->yPos + enemy->yRad){
+			printf("\nKILL\n");
+			player->yVel = 1.0f;
+			enemy->isVisable = false;
+		}
+		else{ 
+			printf("\nENEMY!!!\n"); 
+			//player->ResetDynamic();
+			InitLevel();
+		}
+		
+	
+	
+	}
+	else return;
+	
 
+
+
+}
 
 /////////////////////////////
 //file stuff
 
 void GameClass::ReadTileMapFile() {
-	std::ifstream infile(LEVEL_FILE);
+
+	std::string levelName= LEVEL_FILE;
+
+	if (levelNum == 1) levelName = LEVEL_1;
+	else if (levelNum == 2) levelName = LEVEL_2;
+	else if (levelNum == 3) levelName = LEVEL_3;
+	else if (levelNum == 4) levelName = LEVEL_4;
+	else if (levelNum == 5) levelName = LEVEL_5;
+
+	std::ifstream infile(levelName);
 	std::string line;
 	while (std::getline(infile, line)) {
 		if (line == "[header]" && !ReadTileMapHeaderData(infile)) {
