@@ -37,3 +37,7 @@ location=2,9,0,0
 type=goal
 location=29,5,0,0
 
+[Object Layer 1]
+type=enemy
+location=11,8,0,0
+

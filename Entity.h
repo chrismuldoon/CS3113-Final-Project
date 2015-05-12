@@ -78,8 +78,13 @@ public:
 	int score;
 
 	Mix_Chunk *jumpSound;
-	Mix_Chunk *hitSound;
+	Mix_Chunk *changeSound;
+	Mix_Chunk *killSound;
+
 	GLuint sheet;
+
+	float animationCount;
+	bool playerClose;
 };
 
 float lerp(float v0, float v1, float t);

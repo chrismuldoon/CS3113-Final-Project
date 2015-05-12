@@ -10,19 +10,21 @@
 
 
 enum GameState { STATE_MENU, STATE_GAME, STATE_GAMEOVER };
-
+int deaths = 0;
 
 GameClass::GameClass() {
 	Init();
 	done = false;
 	lastFrameTicks = 0.0f;
 	timeLeftOver = 0.0f;
-
+	logo = LoadTexture("logo.png");
+	logoPos = .9f;
+	//deaths = 0;
 }
 void GameClass::Init() {
 	//video stuff
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
-	displayWindow = SDL_CreateWindow("My Game", SDL_WINDOWPOS_CENTERED,
+	displayWindow = SDL_CreateWindow("THERE HAS TO BE A BETTER WAY", SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_OPENGL);
 	SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
 	SDL_GL_MakeCurrent(displayWindow, context);
@@ -38,6 +40,17 @@ void GameClass::Init() {
 	spriteImg = LoadTexture("arne_sprites.png");
 
 	state = STATE_MENU;
+
+	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
+
+	finishSound = Mix_LoadWAV("finish.wav");
+	deathSound = Mix_LoadWAV("ouch.wav");
+
+
+	music = Mix_LoadMUS("capn.mp3");
+	Mix_PlayMusic(music, -1);
+	Mix_VolumeMusic(37);
+
 
 	//InitLevel();
 
@@ -62,8 +75,7 @@ void GameClass::InitLevel()
 	
 	ReadTileMapFile();
 
-	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
-	//music = Mix_LoadMUS("murder.mp3");
+	
 
 
 	playerOneController = SDL_JoystickOpen(0);
@@ -73,8 +85,14 @@ void GameClass::InitLevel()
 
 	player->sheet = spriteImg;
 	player->jumpSound = Mix_LoadWAV("smw_jump.wav");
-	player->hitSound = Mix_LoadWAV("smw_shell_ricochet.wav");
-	Mix_VolumeChunk((player->hitSound), 127);
+	player->changeSound = Mix_LoadWAV("change.wav");
+	
+	player->killSound = Mix_LoadWAV("kill.wav");
+
+
+
+
+	//Mix_VolumeChunk((player->hitSound), 127);
 	Mix_VolumeChunk((player->jumpSound), 90);
 
 	exit->sheet = spriteImg;
@@ -88,8 +106,6 @@ void GameClass::InitLevel()
 	//someSound = Mix_LoadWAV("hangout.wav");
 
 	//Mix_PlayChannel(-1, someSound, 0);
-	//Mix_PlayMusic(music, -1);
-	Mix_VolumeMusic(55);
 
 
 }
@@ -159,9 +175,12 @@ void GameClass::RenderMenu(){
 
 	//size, spacing, x, y, rgba
 
-	DrawText(textImg, "INVADERS", 0.40, -0.16, -0.82, 0.5, 1.0, 1.0, 1.0, 1.0);
+	//DrawText(textImg, "INVADERS", 0.40, -0.16, -0.82, 0.5, 1.0, 1.0, 1.0, 1.0);
 	//DrawText(textImg, "I just met her!", 0.20, -0.11, -1.1, -0.3, 1.0, 1.0, 1.0, 1.0);
-	DrawText(textImg, "(Press Enter to start)", 0.16, -0.11, -0.5, -0.3, 1.0, 1.0, 1.0, 1.0);
+	DrawSprite(logo, 0.0, logoPos, 0.0);
+	
+	
+	DrawText(textImg, "(Press Enter to start)", 0.16, -0.11, -0.5, -0.85, 1.0, 1.0, 1.0, 1.0);
 
 	//DrawRectanglee(0.0, 0.50, .50, .190);
 	SDL_GL_SwapWindow(displayWindow);
@@ -177,10 +196,10 @@ void GameClass::RenderGO(){
 	//DrawRectanglee(0.0, 0.0, 1.5, 2.0);
 
 	//if (!winner) DrawText(textImg, "YOU DIED", 0.40, -0.16, -0.82, 0.5, 1.0, 0.0, 0.0, 1.0);
-	//else        DrawText(textImg, "YOU WIN", 0.40, -0.16, -0.72, 0.5, 1.0, 1.0, 0.0, 1.0);
+	DrawText(textImg, "YOU WIN", 0.40, -0.16, -0.72, 0.5, 1.0, 1.0, 0.0, 1.0);
 
 
-	DrawText(textImg, "Score: ", 0.16, -0.09, -0.48, -0.001, 1.0, 1.0, 1.0, 1.0);
+	//DrawText(textImg, "Score: ", 0.16, -0.09, -0.48, -0.001, 1.0, 1.0, 1.0, 1.0);
 	//DrawText(textImg, std::to_string(score * 10), 0.16, -0.09, 0.12, -0.001, 1.0, 1.0, 1.0, 1.0);
 	DrawText(textImg, "(Press esc to continue)", 0.16, -0.09, -0.72, -0.3, 0.2, 0.2, 0.2, 0.8);
 
@@ -243,6 +262,12 @@ void GameClass::Render() {
 		enemies[i]->Render();
 		
 	}
+
+
+	DrawText(textImg, "Deaths:", 0.10, -0.06, 0.71, 0.9, 1.0, 1.0, 1.0, 1.0);
+	DrawText(textImg, std::to_string(deaths), 0.10, -0.06, 1.05, 0.9, 1.0, 1.0, 1.0, 1.0);
+
+
 
 
 	SDL_GL_SwapWindow(displayWindow);
@@ -328,7 +353,7 @@ bool GameClass::UpdateAndRender() {
 		switch (state)
 		{
 		case STATE_MENU:
-			//FixedUpdateGO();
+			FixedUpdateMenu();
 			break;
 		case STATE_GAME:
 			FixedUpdate();
@@ -375,6 +400,14 @@ bool GameClass::UpdateAndRender() {
 	return done;
 }
 
+void GameClass::FixedUpdateMenu(){
+	logoPos -= 0.005f;
+	if (logoPos < 0) logoPos = 0;
+	deaths = 0;
+	lastDeaths = 0;
+
+}
+
 void GameClass::UpdateMenu(){
 
 	while (SDL_PollEvent(&event)) {
@@ -385,7 +418,7 @@ void GameClass::UpdateMenu(){
 			if (event.key.keysym.scancode == SDL_SCANCODE_RETURN) {
 				// DO AN ACTION WHEN SPACE IS PRESSED!
 				//if (!player) break;
-				levelNum = 0;
+				levelNum = 1;
 				InitLevel();
 				state = STATE_GAME;
 			}
@@ -403,7 +436,7 @@ void GameClass::UpdateGO(){
 			done = true;
 		}
 		else if (event.type == SDL_KEYDOWN) {
-			if (event.key.keysym.scancode == SDL_SCANCODE_RETURN) {
+			if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
 				// DO AN ACTION WHEN SPACE IS PRESSED!
 				//if (!player) break;
 				state = STATE_MENU;
@@ -441,13 +474,34 @@ void GameClass::FixedUpdate(){
 		levelNum++;
 
 		InitLevel();
-		
+		Mix_PlayChannel(-1, finishSound, 0);
 		
 		
 		
 		printf("winner!"); }
 
+	if (deaths > lastDeaths){
+		InitLevel();
+		lastDeaths = deaths;
+		Mix_PlayChannel(-1, deathSound, 0);
+	
+	}
+
+	for (size_t i = 0; i < enemies.size(); i++){
+		if (distance(player, enemies[i]) < 0.6f)
+			enemies[i]->playerClose = true;
+		
+	
+	}
+
 }
+
+float GameClass::distance(Entity* ent1, Entity* ent2){
+	float xDist = ent2->xPos - ent1->xPos;
+	float yDist = ent2->yPos - ent1->yPos;
+	return sqrt(xDist*xDist + yDist*yDist);
+}
+
 
 void GameClass::enemyCollision(Entity* player, Entity* enemy){
 	if (player->collidesWith(enemy))
@@ -456,11 +510,14 @@ void GameClass::enemyCollision(Entity* player, Entity* enemy){
 			printf("\nKILL\n");
 			player->yVel = 1.0f;
 			enemy->isVisable = false;
+			Mix_PlayChannel(-1, player->killSound, 0);
 		}
 		else{ 
 			printf("\nENEMY!!!\n"); 
+			Mix_PlayChannel(-1, deathSound, 0);
 			//player->ResetDynamic();
-			InitLevel();
+			//InitLevel();
+			deaths++;
 		}
 		
 	
@@ -478,7 +535,7 @@ void GameClass::enemyCollision(Entity* player, Entity* enemy){
 
 void GameClass::ReadTileMapFile() {
 
-	std::string levelName= LEVEL_FILE;
+	std::string levelName= LEVEL_1;
 
 	if (levelNum == 1) levelName = LEVEL_1;
 	else if (levelNum == 2) levelName = LEVEL_2;

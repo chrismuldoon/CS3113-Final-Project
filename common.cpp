@@ -52,6 +52,45 @@ void DrawSpriteSheetSprite(int spriteTexture, int index, int spriteCountX, int s
 
 }
 
+
+
+void DrawSprite(GLint texture, float x, float y, float rotation, int resX, int resY) {
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glTranslatef(x, y, 0.0);
+	glRotatef(rotation, 0.0, 0.0, 1.0);
+	float xOverY = (float)resX / resY;
+	float yOverX = 1.0 / xOverY;
+	//GLfloat quad[] = { -0.4f*xOverY, 0.4f * 1, -0.4f*xOverY, -0.4f * 1, 0.4f*xOverY, -0.4f * 1, 0.4f*xOverY, 0.4f * 1 };
+	float r1 = 1.3f;
+	float r2 = .6f;
+	GLfloat quad[] = { 
+		//(x + r1), (y + r2),
+		(x - r1), (y + r2),
+		(x - r1), (y - r2),
+		(x + r1), (y - r2),
+		(x + r1), (y + r2) 
+	};
+	
+	
+	
+	glVertexPointer(2, GL_FLOAT, 0, quad);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	GLfloat quadUVs[] = { 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0 };
+	glTexCoordPointer(2, GL_FLOAT, 0, quadUVs);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDrawArrays(GL_QUADS, 0, 4);
+	glDisable(GL_TEXTURE_2D);
+
+}
+
+
+
 void DrawSprite2(GLint texture, float u, float v, float width, float height) {
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, texture);

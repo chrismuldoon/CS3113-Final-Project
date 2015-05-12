@@ -15,3 +15,6 @@ void DrawRectangle(float x, float y, float r1, float r2);
 GLuint LoadTexture(const char *image_path);
 
 void DrawText(int fontTexture, string text, float size, float spacing, float x, float y, float r, float g, float b, float a);
+
+
+void DrawSprite(GLint texture, float x, float y, float rotation, int resX = 1, int resY = 1);

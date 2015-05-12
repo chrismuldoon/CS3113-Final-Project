@@ -44,11 +44,13 @@ public:
 	bool ReadTileMapHeaderData(std::ifstream &stream);
 	bool ReadTileMapLayerData(std::ifstream &stream);
 	bool ReadTileMapEntityData(std::ifstream &stream);
+	float distance(Entity* ent1, Entity* ent2);
 
 
 private:
 	int state;
 	int levelNum;
+	
 
 	bool done;
 	float lastFrameTicks;
@@ -57,6 +59,8 @@ private:
 	SDL_Event event;
 	GLuint textImg;
 	GLuint spriteImg;
+	GLuint logo;
+	float logoPos;
 	//unsigned char levelData[LEVEL_HEIGHT][LEVEL_WIDTH];
 	unsigned char **levelData;
 	int mapWidth;
@@ -74,4 +78,10 @@ private:
 
 	void enemyCollision(Entity* player, Entity* enemy);
 	void InitLevel();
+	void FixedUpdateMenu();
+
+	int lastDeaths;
+	Mix_Chunk *deathSound;
+	Mix_Chunk *finishSound;
+
 };

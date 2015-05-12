@@ -21,7 +21,7 @@
 #define PLAYER_RADIUS 0.06f
 
 
-
+int extern deaths;
 
 bool isSolid(int index){
 	//all but 12 are solid
@@ -118,6 +118,7 @@ Entity::Entity(float x, float y, string type)
 
 		ResetDynamic();
 		enemyAccel = INPUT_ACCEL *0.7;
+		playerClose = false;
 	}
 
 }
@@ -188,19 +189,37 @@ void Entity::Render(){
 
 	else if (isEnemy && isVisable){
 		//printf("isenemyrender");
-		DrawSpriteSheetSprite(sheet, 4, 16, 8, xPos, yPos, xRad, yRad, 0.0f);
+		DrawSpriteSheetSprite(sheet, 76, 16, 8, xPos, yPos, xRad, yRad, 0.0f);
 	}
 
 	else if (isVisable){
 		//DrawRectangle(xPos, yPos, xRad, yRad);// , r, g, b);
+
+
+
+
+
+
 		float rotateThis;
 		if (gravFlag == GRAV_DOWN)	rotateThis = 0.0f;
 		else if (gravFlag == GRAV_RIGHT) rotateThis = 90.0f;
 		else if (gravFlag == GRAV_UP) rotateThis = 180.0f;
 		else if (gravFlag == GRAV_LEFT) rotateThis = 270.0f;
 
-		DrawSpriteSheetSprite(sheet, 80, 16, 8, xPos, yPos, xRad, yRad, rotateThis);
+		if (collidedBottom || collidedTop || collidedLeft || collidedRight){
+			animationCount += fabs(xVel);
+			animationCount += fabs(yVel);
 
+
+
+
+			if (animationCount > 10) animationCount = 0;
+			if (animationCount > 5) DrawSpriteSheetSprite(sheet, 81, 16, 8, xPos, yPos, xRad, yRad, rotateThis);
+			else DrawSpriteSheetSprite(sheet, 80, 16, 8, xPos, yPos, xRad, yRad, rotateThis);
+		}
+		else
+			DrawSpriteSheetSprite(sheet, 80, 16, 8, xPos, yPos, xRad, yRad, rotateThis);
+		
 	}
 }
 
@@ -264,9 +283,16 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 	}
 
 	if (isEnemy){
-		if (xVel >= 0) xVel = MAX_SPEED*ENEMY_SPEED_FRAC;
-		else if (true)
-		 xVel = -MAX_SPEED*ENEMY_SPEED_FRAC;
+		if (playerClose){
+			if (xVel >= 0) xVel = MAX_SPEED*ENEMY_SPEED_FRAC;
+			else if (true)
+				xVel = -MAX_SPEED*ENEMY_SPEED_FRAC;
+		}
+		else {
+			if (xVel >= 0) xVel = MAX_SPEED*ENEMY_SPEED_FRAC*0.25;
+			else if (true)
+				xVel = -MAX_SPEED*ENEMY_SPEED_FRAC*0.25;
+		}
 	}
 	//or if a & v signs dont match, apply accel
 	else if ((xVel < 0 && xAccel > 0)||(xVel > 0 && xAccel < 0)) 
@@ -382,7 +408,12 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			collidedBottom = true;
 			canChangeGrav = true;
 		}
-		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) {
+			ResetDynamic();
+			//InitLevel();
+			deaths++;
+			//Mix_PlayChannel(-1, player->deathSound, 0);
+		}
 	}
 
 	//bottom! (right corner)
@@ -396,7 +427,11 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			collidedBottom = true;
 			canChangeGrav = true;
 		}
-		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox){
+			ResetDynamic();
+			deaths++;
+			//Mix_PlayChannel(-1, player->deathSound, 0);
+		}
 	}
 
 	//top! (left corner)
@@ -408,9 +443,13 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			yVel = 0.0f;
 			collidedTop = true;
 			canChangeGrav = true;
-			Mix_PlayChannel(2, hitSound, 0);
+			//Mix_PlayChannel(2, hitSound, 0);
 		}
-		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) {
+			ResetDynamic();
+			deaths++;
+			//Mix_PlayChannel(-1, player->deathSound, 0);
+		}
 	}
 	//top! (right corner)
 	worldToTileCoordinates(xPos + xRad*0.7f, yPos + yRad, &gridX, &gridY);
@@ -421,9 +460,13 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			yVel = 0.0f;
 			collidedTop = true;
 			canChangeGrav = true;
-			Mix_PlayChannel(2, hitSound, 0);
+			//Mix_PlayChannel(2, hitSound, 0);
 		}
-		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) {
+			ResetDynamic();
+			deaths++;
+			//Mix_PlayChannel(-1, player->deathSound, 0);
+		}
 	}
 
 
@@ -441,7 +484,11 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			collidedLeft = true;
 			canChangeGrav = true;
 		}
-		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) {
+			ResetDynamic();
+			deaths++;
+			//Mix_PlayChannel(-1, player->deathSound, 0);
+		}
 	}
 	worldToTileCoordinates(xPos - xRad, yPos + yRad*0.7f, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
@@ -453,7 +500,11 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			collidedLeft = true;
 			canChangeGrav = true;
 		}
-		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) {
+			ResetDynamic();
+			deaths++;
+			//Mix_PlayChannel(-1, player->deathSound, 0);
+		}
 	}
 
 	//right!
@@ -467,7 +518,11 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			collidedRight = true;
 			canChangeGrav = true;
 		}
-		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) {
+			ResetDynamic();
+			deaths++;
+			//Mix_PlayChannel(-1, player->deathSound, 0);
+		}
 	}
 	worldToTileCoordinates(xPos + xRad, yPos + yRad*0.7f, &gridX, &gridY);
 	if (gridY < mapHeight && gridX < mapWidth && gridY >= 0 && gridX >= 0){
@@ -479,7 +534,11 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 			collidedRight = true;
 			canChangeGrav = true;
 		}
-		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) ResetDynamic();
+		if (!isEnemy && isDeadly(level[gridY][gridX]) && !isBox) {
+			ResetDynamic();
+			deaths++;
+			//Mix_PlayChannel(-1, player->deathSound, 0);
+		}
 	}
 	//enemy"AI" (lol)
 	if (isEnemy){
@@ -518,6 +577,7 @@ void Entity::FixedUpdate(unsigned char **level, int mapHeight, int mapWidth, Ent
 	//if fall below screen
 	if ((yPos < -(mapHeight + 3)*TILE_SIZE) || (yPos > TILE_SIZE * 3) || (xPos < -TILE_SIZE * 3) || (xPos > (mapWidth  +3) * TILE_SIZE) ){
 		ResetDynamic();
+		deaths++;
 		score = 0;
 	}
 
@@ -629,7 +689,7 @@ void Entity::rotateGravR(){
 void Entity::setGrav(int direction){
 	if (!canChangeGrav) return;
 	canChangeGrav = false;
-
+	Mix_PlayChannel(-1, changeSound, 0);
 	if (direction == GRAV_DOWN){
 		gravFlag = GRAV_DOWN;
 		xGrav = 0;

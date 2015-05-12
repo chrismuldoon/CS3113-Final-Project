@@ -54,3 +54,19 @@ location=3,29,0,0
 type=goal
 location=21,15,0,0
 
+[Object Layer 1]
+type=enemy
+location=8,31,0,0
+
+[Object Layer 1]
+type=enemy
+location=13,30,0,0
+
+[Object Layer 1]
+type=enemy
+location=18,30,0,0
+
+[Object Layer 1]
+type=enemy
+location=21,30,0,0
+
